@@ -193,6 +193,17 @@ class DocumentScanner extends StatelessWidget {
 }
 
 class _View extends StatelessWidget {
+
+  final AnimatedSwitcherTransitionBuilder? pageTransitionBuilder;
+  final GeneralStyles generalStyles;
+  final TakePhotoDocumentStyle takePhotoDocumentStyle;
+  final CropPhotoDocumentStyle cropPhotoDocumentStyle;
+  final EditPhotoDocumentStyle editPhotoDocumentStyle;
+  final OnSave onSave;
+  final CameraLensDirection initialCameraLensDirection;
+  final ResolutionPreset resolutionCamera;
+  final bool lockOrientation;
+
   const _View({
     this.pageTransitionBuilder,
     required this.generalStyles,
@@ -204,16 +215,6 @@ class _View extends StatelessWidget {
     required this.resolutionCamera,
     required this.lockOrientation
   });
-
-  final AnimatedSwitcherTransitionBuilder? pageTransitionBuilder;
-  final GeneralStyles generalStyles;
-  final TakePhotoDocumentStyle takePhotoDocumentStyle;
-  final CropPhotoDocumentStyle cropPhotoDocumentStyle;
-  final EditPhotoDocumentStyle editPhotoDocumentStyle;
-  final OnSave onSave;
-  final CameraLensDirection initialCameraLensDirection;
-  final ResolutionPreset resolutionCamera;
-  final bool lockOrientation;
 
   @override
   Widget build(BuildContext context) {
