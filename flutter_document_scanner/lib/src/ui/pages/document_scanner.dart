@@ -214,11 +214,10 @@ class _View extends StatelessWidget {
   final CameraLensDirection initialCameraLensDirection;
   final ResolutionPreset resolutionCamera;
   final bool lockOrientation;
-  bool get getLockOrientation => lockOrientation;
 
   @override
   Widget build(BuildContext context) {
-    if (getLockOrientation) {
+    if (lockOrientation) {
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     }
     // Add orientation awareness
