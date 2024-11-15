@@ -216,6 +216,8 @@ class _View extends StatelessWidget {
     required this.lockOrientation
   });
 
+  bool get getLockOrientation => lockOrientation;
+
   @override
   Widget build(BuildContext context) {
     if (lockOrientation) {
