@@ -213,7 +213,7 @@ class CropBloc extends Bloc<CropEvent, CropState> {
         ),
       );
     } else {
-      area = Area(
+      final area = Area(
         topRight: Point(
           state.area.topRight.x * scalingFactorX,
           state.area.topRight.y * scalingFactorY,
