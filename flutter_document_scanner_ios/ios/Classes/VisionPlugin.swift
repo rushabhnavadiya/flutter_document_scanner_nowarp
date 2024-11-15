@@ -12,18 +12,35 @@ import UIKit
 
 
 class VisionPlugin {
-    func findContourPhoto(result: @escaping FlutterResult, byteData: FlutterStandardTypedData, minContourArea: Double) {
-        guard let image = UIImage(data: byteData.data) else {
-            result(FlutterError(code: "FIND_CONTOUR_PHOTO", message: "Invalid ByteData", details: nil))
-            return
-        }
-        
-        guard let cgImage = image.cgImage else {
-            result(FlutterError(code: "FIND_CONTOUR_PHOTO", message: "Invalid CGImage", details: nil))
-            return
-        }
+   func findContourPhoto(result: @escaping FlutterResult, byteData: FlutterStandardTypedData, minContourArea: Double) {
+      guard let image = UIImage(data: byteData.data) else {
+          result(FlutterError(code: "FIND_CONTOUR_PHOTO", message: "Invalid ByteData", details: nil))
+          return
+      }
 
-        let request = VNDetectRectanglesRequest { request, error in
+      guard let cgImage = image.cgImage else {
+          result(FlutterError(code: "FIND_CONTOUR_PHOTO", message: "Invalid CGImage", details: nil))
+          return
+      }
+
+      // Add orientation handling
+      let imageOrientation = image.imageOrientation
+      let orientedImage: UIImage
+      if imageOrientation != .up {
+          UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
+          image.draw(in: CGRect(origin: .zero, size: image.size))
+          orientedImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
+          UIGraphicsEndImageContext()
+      } else {
+          orientedImage = image
+      }
+
+      guard let orientedCGImage = orientedImage.cgImage else {
+          result(FlutterError(code: "FIND_CONTOUR_PHOTO", message: "Invalid Oriented CGImage", details: nil))
+          return
+      }
+
+      let request = VNDetectRectanglesRequest { request, error in
             DispatchQueue.main.async {
                 guard let results = request.results as? [VNRectangleObservation], let rectangle = results.first else {
                     result(nil)
