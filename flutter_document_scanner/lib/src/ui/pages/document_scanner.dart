@@ -183,6 +183,7 @@ class DocumentScanner extends StatelessWidget {
               onSave: onSave,
               initialCameraLensDirection: initialCameraLensDirection,
               resolutionCamera: resolutionCamera,
+              lockOrientation: lockOrientation,
             ),
           ),
         ),
@@ -201,6 +202,7 @@ class _View extends StatelessWidget {
     required this.onSave,
     required this.initialCameraLensDirection,
     required this.resolutionCamera,
+    required this.lockOrientation
   });
 
   final AnimatedSwitcherTransitionBuilder? pageTransitionBuilder;
@@ -211,10 +213,12 @@ class _View extends StatelessWidget {
   final OnSave onSave;
   final CameraLensDirection initialCameraLensDirection;
   final ResolutionPreset resolutionCamera;
+  final bool lockOrientation;
+  bool get getLockOrientation => lockOrientation;
 
   @override
   Widget build(BuildContext context) {
-    if (lockOrientation) {
+    if (getLockOrientation) {
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     }
     // Add orientation awareness
