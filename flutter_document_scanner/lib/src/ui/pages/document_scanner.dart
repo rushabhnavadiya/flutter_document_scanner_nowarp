@@ -36,6 +36,7 @@ class DocumentScanner extends StatelessWidget {
     this.takePhotoDocumentStyle = const TakePhotoDocumentStyle(),
     this.cropPhotoDocumentStyle = const CropPhotoDocumentStyle(),
     this.editPhotoDocumentStyle = const EditPhotoDocumentStyle(),
+    this.lockOrientation = false,
     required this.onSave,
   });
 
@@ -72,6 +73,8 @@ class DocumentScanner extends StatelessWidget {
   /// After performing the whole process of capturing the document
   /// It will return it as [Uint8List].
   final OnSave onSave;
+
+  final bool lockOrientation;
 
   @override
   Widget build(BuildContext context) {
@@ -211,9 +214,11 @@ class _View extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    if (lockOrientation) {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    }
+    // Add orientation awareness
+    final orientation = MediaQuery.of(context).orientation;
 
     return BlocSelector<AppBloc, AppState, AppPages>(
       selector: (state) => state.currentPage,
@@ -224,7 +229,13 @@ class _View extends StatelessWidget {
           case AppPages.takePhoto:
             if (generalStyles.showCameraPreview) {
               page = TakePhotoDocumentPage(
-                takePhotoDocumentStyle: takePhotoDocumentStyle,
+                takePhotoDocumentStyle: takePhotoDocumentStyle.copyWith(
+                // Add orientation-specific styling
+                top: orientation == Orientation.portrait
+                ? takePhotoDocumentStyle.top
+                    : 0.0,
+                // ... adjust other parameters
+                ),
                 initialCameraLensDirection: initialCameraLensDirection,
                 resolutionCamera: resolutionCamera,
               );

@@ -81,6 +81,9 @@ class _EditView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+    final size = MediaQuery.of(context).size;
+
     return MultiBlocListener(
       listeners: [
         BlocListener<AppBloc, AppState>(
@@ -135,21 +138,27 @@ class _EditView extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Positioned(
-            top: editPhotoDocumentStyle.top,
-            left: editPhotoDocumentStyle.left,
-            right: editPhotoDocumentStyle.right,
-            bottom: editPhotoDocumentStyle.bottom,
+            top: orientation == Orientation.portrait
+                ? editPhotoDocumentStyle.top
+                : size.height * 0.1,
+            left: orientation == Orientation.portrait
+                ? editPhotoDocumentStyle.left
+                : size.width * 0.1,
+            right: orientation == Orientation.portrait
+                ? editPhotoDocumentStyle.right
+                : size.width * 0.1,
+            bottom: orientation == Orientation.portrait
+                ? editPhotoDocumentStyle.bottom
+                : size.height * 0.1,
             child: BlocSelector<EditBloc, EditState, Uint8List?>(
               selector: (state) => state.image,
               builder: (context, image) {
                 if (image == null) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return const Center(child: CircularProgressIndicator());
                 }
-
                 return Image.memory(
                   image,
+                  fit: BoxFit.contain,  // Changed from default to contain
                 );
               },
             ),

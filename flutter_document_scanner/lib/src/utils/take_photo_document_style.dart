@@ -47,4 +47,18 @@ class TakePhotoDocumentStyle {
 
   /// Hide the default button to take picture
   final bool hideDefaultButtonTakePicture;
+
+  TakePhotoDocumentStyle copyWith({
+    double? top,
+    double? bottom,
+    double? left,
+    double? right,
+  }) {
+    return TakePhotoDocumentStyle(
+      top: top ?? this.top,
+      bottom: bottom ?? this.bottom,
+      left: left ?? this.left,
+      right: right ?? this.right,
+    );
+  }
 }

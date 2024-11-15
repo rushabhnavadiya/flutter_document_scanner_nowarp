@@ -95,25 +95,70 @@ class _CameraPreview extends StatelessWidget {
           );
         }
 
+        // Add orientation handling
+        final orientation = MediaQuery.of(context).orientation;
+        final size = MediaQuery.of(context).size;
+
+        // Calculate camera preview constraints based on orientation
+        final previewRatio = state.value.previewSize!.height / state.value.previewSize!.width;
+        final screenRatio = size.height / size.width;
+
+        // Calculate preview dimensions to maintain aspect ratio
+        Widget previewWidget = CameraPreview(state);
+        if (orientation == Orientation.portrait) {
+          final previewWidth = size.width;
+          final previewHeight = size.width * previewRatio;
+          previewWidget = SizedBox(
+            width: previewWidth,
+            height: previewHeight,
+            child: CameraPreview(state),
+          );
+        } else {
+          // In landscape, we need to adjust the preview to fit the height
+          final previewHeight = size.height;
+          final previewWidth = size.height / previewRatio;
+          previewWidget = SizedBox(
+            width: previewWidth,
+            height: previewHeight,
+            child: CameraPreview(state),
+          );
+        }
+
         return Stack(
           fit: StackFit.expand,
           children: [
-            // * Camera
+            // Camera
             Positioned(
-              top: takePhotoDocumentStyle.top,
-              bottom: takePhotoDocumentStyle.bottom,
-              left: takePhotoDocumentStyle.left,
-              right: takePhotoDocumentStyle.right,
-              child: CameraPreview(state),
+              top: orientation == Orientation.portrait
+                  ? takePhotoDocumentStyle.top
+                  : 0,
+              bottom: orientation == Orientation.portrait
+                  ? takePhotoDocumentStyle.bottom
+                  : 0,
+              left: orientation == Orientation.portrait
+                  ? takePhotoDocumentStyle.left
+                  : 0,
+              right: orientation == Orientation.portrait
+                  ? takePhotoDocumentStyle.right
+                  : 0,
+              child: Center(
+                child: previewWidget,
+              ),
             ),
 
-            // * children
+            // Children (overlay elements)
             if (takePhotoDocumentStyle.children != null)
               ...takePhotoDocumentStyle.children!,
 
-            /// Default
-            ButtonTakePhoto(
-              takePhotoDocumentStyle: takePhotoDocumentStyle,
+            // Button position based on orientation
+            Positioned(
+              bottom: orientation == Orientation.portrait ? 20 : null,
+              right: orientation == Orientation.landscape ? 20 : null,
+              left: orientation == Orientation.portrait ? 0 : null,
+              top: orientation == Orientation.landscape ? 0 : null,
+              child: ButtonTakePhoto(
+                takePhotoDocumentStyle: takePhotoDocumentStyle,
+              ),
             ),
           ],
         );

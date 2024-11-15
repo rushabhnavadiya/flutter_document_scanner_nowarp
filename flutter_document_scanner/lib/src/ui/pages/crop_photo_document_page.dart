@@ -96,6 +96,21 @@ class _CropView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+    final size = MediaQuery.of(context).size;
+    // Calculate dynamic margins based on orientation
+    final margins = orientation == Orientation.portrait
+        ? EdgeInsets.fromLTRB(
+      cropPhotoDocumentStyle.left,
+      cropPhotoDocumentStyle.top,
+      cropPhotoDocumentStyle.right,
+      cropPhotoDocumentStyle.bottom,
+    )
+        : EdgeInsets.symmetric(
+      vertical: size.height * 0.1,
+      horizontal: size.width * 0.1,
+    );
+
     return MultiBlocListener(
       listeners: [
         BlocListener<AppBloc, AppState>(
@@ -125,11 +140,13 @@ class _CropView extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Positioned(
-            top: cropPhotoDocumentStyle.top,
-            bottom: cropPhotoDocumentStyle.bottom,
-            left: cropPhotoDocumentStyle.left,
-            right: cropPhotoDocumentStyle.right,
+          Positioned.fromRect(
+            rect: Rect.fromLTWH(
+              margins.left,
+              margins.top,
+              size.width - margins.left - margins.right,
+              size.height - margins.top - margins.bottom,
+            ),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -137,7 +154,7 @@ class _CropView extends StatelessWidget {
                 Positioned.fill(
                   child: Image.file(
                     image,
-                    fit: BoxFit.fill,
+                    fit: BoxFit.contain,
                   ),
                 ),
 

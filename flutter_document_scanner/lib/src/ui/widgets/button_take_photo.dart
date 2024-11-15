@@ -23,40 +23,48 @@ class ButtonTakePhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+
     if (takePhotoDocumentStyle.hideDefaultButtonTakePicture) {
       return const SizedBox.shrink();
     }
 
-    return Positioned(
-      bottom: 20,
-      left: 0,
-      right: 0,
-      child: Center(
-        child: GestureDetector(
-          onTap: () => context.read<DocumentScannerController>().takePhoto(),
-          child: Container(
-            height: 74,
-            width: 74,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white,
-                width: 6,
-              ),
-            ),
-            child: Center(
+    return Container(
+      padding: EdgeInsets.symmetric(
+        vertical: orientation == Orientation.portrait ? 20 : 10,
+        horizontal: orientation == Orientation.portrait ? 0 : 10,
+      ),
+        child: Positioned(
+          bottom: 20,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: GestureDetector(
+              onTap: () => context.read<DocumentScannerController>().takePhoto(),
               child: Container(
-                height: 25,
-                width: 25,
-                decoration: const BoxDecoration(
-                  color: Color(0xffd8345e),
+                height: 74,
+                width: 74,
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 6,
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    height: 25,
+                    width: 25,
+                    decoration: const BoxDecoration(
+                      color: Color(0xffd8345e),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
     );
   }
 }
