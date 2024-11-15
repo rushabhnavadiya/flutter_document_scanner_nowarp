@@ -22,7 +22,7 @@ class VisionPlugin {
             result(FlutterError(code: "FIND_CONTOUR_PHOTO", message: "Invalid CGImage", details: nil))
             return
         }
-        
+
         let request = VNDetectRectanglesRequest { request, error in
             DispatchQueue.main.async {
                 guard let results = request.results as? [VNRectangleObservation], let rectangle = results.first else {
@@ -97,12 +97,19 @@ class VisionPlugin {
             result(FlutterError(code: "ADJUSTING_PERSPECTIVE", message: "Invalid ByteData", details: nil))
             return
         }
-        
-        guard let ciImage = CIImage(image: image)?.oriented(.rightMirrored) else {
+
+        guard var ciImage = CIImage(image: image) else {
             result(FlutterError(code: "ADJUSTING_PERSPECTIVE", message: "Invalid CIImage", details: nil))
             return
         }
-        
+
+        // Handle orientation from image metadata
+        if let cgImage = image.cgImage {
+            let properties = ciImage.properties
+            if let orientation = properties[kCGImagePropertyOrientation as String] as? UInt32 {
+                ciImage = ciImage.oriented(CGImagePropertyOrientation(rawValue: orientation) ?? .up)
+            }
+        }
         
         guard points.count == 4,
               let topLeft = CGPoint(dictionary: points[0]),
