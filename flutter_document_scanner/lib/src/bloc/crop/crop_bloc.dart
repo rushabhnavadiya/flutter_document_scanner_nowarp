@@ -186,27 +186,52 @@ class CropBloc extends Bloc<CropEvent, CropState> {
       event.image.readAsBytesSync(),
     );
 
+    // Check if image is landscape
+    bool isLandscape = imageDecoded.width > imageDecoded.height;
+
     final scalingFactorY = imageDecoded.height / newScreenSize.height;
     final scalingFactorX = imageDecoded.width / newScreenSize.width;
-
-    final area = Area(
-      topRight: Point(
-        state.area.topRight.x * scalingFactorX,
-        state.area.topRight.y * scalingFactorY,
-      ),
-      topLeft: Point(
-        state.area.topLeft.x * scalingFactorX,
-        state.area.topLeft.y * scalingFactorY,
-      ),
-      bottomLeft: Point(
-        state.area.bottomLeft.x * scalingFactorX,
-        state.area.bottomLeft.y * scalingFactorY,
-      ),
-      bottomRight: Point(
-        state.area.bottomRight.x * scalingFactorX,
-        state.area.bottomRight.y * scalingFactorY,
-      ),
-    );
+    // Adjust coordinates for landscape orientation
+    Area area;
+    if (isLandscape) {
+      area = Area(
+        topRight: Point(
+          state.area.bottomRight.x * scalingFactorX,
+          state.area.topRight.y * scalingFactorY,
+        ),
+        topLeft: Point(
+          state.area.topLeft.x * scalingFactorX,
+          state.area.bottomLeft.y * scalingFactorY,
+        ),
+        bottomLeft: Point(
+          state.area.topLeft.x * scalingFactorX,
+          state.area.topLeft.y * scalingFactorY,
+        ),
+        bottomRight: Point(
+          state.area.bottomRight.x * scalingFactorX,
+          state.area.bottomRight.y * scalingFactorY,
+        ),
+      );
+    } else {
+      final area = Area(
+        topRight: Point(
+          state.area.topRight.x * scalingFactorX,
+          state.area.topRight.y * scalingFactorY,
+        ),
+        topLeft: Point(
+          state.area.topLeft.x * scalingFactorX,
+          state.area.topLeft.y * scalingFactorY,
+        ),
+        bottomLeft: Point(
+          state.area.bottomLeft.x * scalingFactorX,
+          state.area.bottomLeft.y * scalingFactorY,
+        ),
+        bottomRight: Point(
+          state.area.bottomRight.x * scalingFactorX,
+          state.area.bottomRight.y * scalingFactorY,
+        ),
+      );
+    }
 
     final contour = Contour(
       points: [
