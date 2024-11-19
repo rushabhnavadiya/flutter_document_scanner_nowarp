@@ -8,6 +8,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_document_scanner_platform_interface/flutter_document_scanner_platform_interface.dart';
+import 'package:native_device_orientation/native_device_orientation.dart';
 
 /// The iOS implementation of [FlutterDocumentScannerPlatform].
 class FlutterDocumentScannerIOS extends FlutterDocumentScannerPlatform {
@@ -30,12 +31,41 @@ class FlutterDocumentScannerIOS extends FlutterDocumentScannerPlatform {
   Future<Contour?> findContourPhoto({
     required Uint8List byteData,
     required double minContourArea,
+    NativeDeviceOrientation? deviceOrientation,
+    int? sensorOrientation,
+    double? previewWidth,
+    double? previewHeight,
   }) async {
+    // Convert NativeDeviceOrientation to integer value for iOS
+    int? deviceOrientationValue;
+    if (deviceOrientation != null) {
+      switch (deviceOrientation) {
+        case NativeDeviceOrientation.portraitUp:
+          deviceOrientationValue = 0;
+          break;
+        case NativeDeviceOrientation.landscapeLeft:
+          deviceOrientationValue = 1;
+          break;
+        case NativeDeviceOrientation.portraitDown:
+          deviceOrientationValue = 2;
+          break;
+        case NativeDeviceOrientation.landscapeRight:
+          deviceOrientationValue = 3;
+          break;
+        default:
+          deviceOrientationValue = 0;
+      }
+    }
+
     final contour = await methodChannel.invokeMapMethod<String, dynamic>(
       'findContourPhoto',
-      <String, Object>{
+      <String, Object?>{
         'byteData': byteData,
         'minContourArea': minContourArea,
+        'deviceOrientation': deviceOrientationValue,
+        'sensorOrientation': sensorOrientation,
+        'previewWidth': previewWidth,
+        'previewHeight': previewHeight,
       },
     );
 
@@ -58,10 +88,10 @@ class FlutterDocumentScannerIOS extends FlutterDocumentScannerPlatform {
         'points': contour.points
             .map(
               (e) => {
-                'x': e.x,
-                'y': e.y,
-              },
-            )
+            'x': e.x,
+            'y': e.y,
+          },
+        )
             .toList(),
       },
     );

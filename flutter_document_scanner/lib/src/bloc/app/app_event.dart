@@ -13,6 +13,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_document_scanner/src/bloc/app/app_state.dart';
 import 'package:flutter_document_scanner/src/models/area.dart';
 import 'package:flutter_document_scanner_platform_interface/flutter_document_scanner_platform_interface.dart';
+import 'package:flutter/foundation.dart' show debugPrint;  // Add this at the top
 
 /// Class to create events
 abstract class AppEvent extends Equatable {}
@@ -57,10 +58,15 @@ class AppPhotoTaken extends AppEvent {
 /// Event when an image is passed to it
 class AppExternalImageContoursFound extends AppEvent {
   /// Create an event instance
+
   AppExternalImageContoursFound({
     required this.image,
     this.minContourArea,
-  });
+  }) {
+    debugPrint('🎯 Created AppExternalImageContoursFound event');
+    debugPrint('   Image: ${image.path}');
+    debugPrint('   MinContourArea: $minContourArea');
+  }
 
   /// Image to find contours
   final File image;

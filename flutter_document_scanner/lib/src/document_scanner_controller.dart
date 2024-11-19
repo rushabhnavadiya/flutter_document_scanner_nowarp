@@ -15,6 +15,7 @@ import 'package:flutter_document_scanner/src/bloc/app/app_event.dart';
 import 'package:flutter_document_scanner/src/ui/pages/crop_photo_document_page.dart';
 import 'package:flutter_document_scanner/src/ui/pages/take_photo_document_page.dart';
 import 'package:flutter_document_scanner/src/utils/image_utils.dart';
+import 'package:flutter/foundation.dart' show debugPrint;  // Add this at the top
 
 /// This class is responsible for controlling the scanning process
 class DocumentScannerController {
@@ -89,12 +90,18 @@ class DocumentScannerController {
     required File image,
     double? minContourArea,
   }) async {
+    debugPrint('🔄 findContoursFromExternalImage called');
+    debugPrint('   Image path: ${image.path}');
+    debugPrint('   minContourArea: $minContourArea');
+
     _appBloc.add(
       AppExternalImageContoursFound(
         image: image,
         minContourArea: minContourArea,
       ),
     );
+    debugPrint('✅ AppExternalImageContoursFound event dispatched');
+
   }
 
   /// Change current page by [AppPages]

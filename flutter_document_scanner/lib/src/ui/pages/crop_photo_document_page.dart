@@ -38,36 +38,51 @@ class CropPhotoDocumentPage extends StatelessWidget {
     final screenSize = MediaQuery.of(context).size;
 
     return WillPopScope(
-      onWillPop: () => _onPop(context),
-      child: BlocSelector<AppBloc, AppState, File?>(
-        selector: (state) => state.pictureInitial,
-        builder: (context, state) {
+        onWillPop: () => _onPop(context),
+    child: BlocListener<AppBloc, AppState>(  // Add this wrapper
+    listener: (context, state) {
+    print("""🔄 AppState changed:
+            currentPage: ${state.currentPage}
+            statusTakePhotoPage: ${state.statusTakePhotoPage}
+            contourInitial: ${state.contourInitial != null}
+            previewSize: ${state.previewSize}""");
+    },
+    child: BlocSelector<AppBloc, AppState, File?>(  // Your existing BlocSelector
+    selector: (state) => state.pictureInitial,
+    builder: (context, state) {
+          print("🖼️ Picture initial state: ${state != null ? 'present' : 'null'}");
           if (state == null) {
             return const Center(
               child: Text('NO IMAGE'),
             );
           }
-
           return BlocProvider(
-            create: (context) => CropBloc(
-              dotUtils: DotUtils(
-                minDistanceDots: cropPhotoDocumentStyle.minDistanceDots,
-              ),
-              imageUtils: ImageUtils(),
-            )..add(
-                CropAreaInitialized(
-                  areaInitial: context.read<AppBloc>().state.contourInitial,
-                  defaultAreaInitial: cropPhotoDocumentStyle.defaultAreaInitial,
-                  image: state,
-                  screenSize: screenSize,
-                  positionImage: Rect.fromLTRB(
-                    cropPhotoDocumentStyle.left,
-                    cropPhotoDocumentStyle.top,
-                    cropPhotoDocumentStyle.right,
-                    cropPhotoDocumentStyle.bottom,
-                  ),
+            create: (context) {
+              final appState = context.read<AppBloc>().state;
+
+              return CropBloc(
+                dotUtils: DotUtils(
+                  minDistanceDots: cropPhotoDocumentStyle.minDistanceDots,
                 ),
-              ),
+                imageUtils: ImageUtils(),
+              )..add(
+                  CropAreaInitialized(
+                    areaInitial: appState.contourInitial,
+                    defaultAreaInitial: cropPhotoDocumentStyle.defaultAreaInitial,
+                    image: state,
+                    screenSize: screenSize,
+                    positionImage:  Rect.fromLTWH(
+                      cropPhotoDocumentStyle.left,
+                      cropPhotoDocumentStyle.top,
+                      cropPhotoDocumentStyle.right - cropPhotoDocumentStyle.left,  // Changed from screenSize.width
+                      cropPhotoDocumentStyle.bottom - cropPhotoDocumentStyle.top,  // Changed from screenSize.height
+                    ),
+                    orientation: MediaQuery.of(context).orientation == Orientation.portrait ? 0 : 1,  // Convert Orientation to int
+                    deviceOrientation: appState.deviceOrientation,
+                    previewSize: appState.previewSize,
+                  ),
+                );
+            },
             child: _CropView(
               cropPhotoDocumentStyle: cropPhotoDocumentStyle,
               image: state,
@@ -75,6 +90,7 @@ class CropPhotoDocumentPage extends StatelessWidget {
           );
         },
       ),
+     ),
     );
   }
 
@@ -101,15 +117,15 @@ class _CropView extends StatelessWidget {
     // Calculate dynamic margins based on orientation
     final margins = orientation == Orientation.portrait
         ? EdgeInsets.fromLTRB(
-      cropPhotoDocumentStyle.left,
-      cropPhotoDocumentStyle.top,
-      cropPhotoDocumentStyle.right,
-      cropPhotoDocumentStyle.bottom,
-    )
+            cropPhotoDocumentStyle.left,
+            cropPhotoDocumentStyle.top,
+            cropPhotoDocumentStyle.right,
+            cropPhotoDocumentStyle.bottom,
+          )
         : EdgeInsets.symmetric(
-      vertical: size.height * 0.1,
-      horizontal: size.width * 0.1,
-    );
+            vertical: size.height * 0.1,
+            horizontal: size.width * 0.1,
+          );
 
     return MultiBlocListener(
       listeners: [
@@ -173,6 +189,7 @@ class _CropView extends StatelessWidget {
                 BlocSelector<CropBloc, CropState, Area>(
                   selector: (state) => state.area,
                   builder: (context, state) {
+                    print("🎯 Crop area in widget: ${state.toString()}");
                     return CustomPaint(
                       painter: BorderCropAreaPainter(
                         area: state,
@@ -200,8 +217,8 @@ class _CropView extends StatelessWidget {
                       },
                       child: Container(
                         color: Colors.transparent,
-                        width: state.topLeft.x + state.topRight.x,
-                        height: state.topLeft.y + state.topRight.y,
+                        width: state.topRight.x - state.topLeft.x,
+                        height: state.bottomLeft.y - state.topLeft.y,
                       ),
                     );
                   },

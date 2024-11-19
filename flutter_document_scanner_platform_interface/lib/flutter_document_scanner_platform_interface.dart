@@ -11,6 +11,7 @@ import 'package:flutter_document_scanner_platform_interface/src/contour.dart';
 import 'package:flutter_document_scanner_platform_interface/src/filter_type.dart';
 import 'package:flutter_document_scanner_platform_interface/src/method_channel_flutter_document_scanner.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:native_device_orientation/native_device_orientation.dart';
 
 export 'package:flutter_document_scanner_platform_interface/src/contour.dart';
 export 'package:flutter_document_scanner_platform_interface/src/filter_type.dart';
@@ -57,6 +58,10 @@ abstract class FlutterDocumentScannerPlatform extends PlatformInterface {
   Future<Contour?> findContourPhoto({
     required Uint8List byteData,
     required double minContourArea,
+    NativeDeviceOrientation? deviceOrientation,
+    int? sensorOrientation,
+    double? previewWidth,
+    double? previewHeight,
   }) {
     throw UnimplementedError('findContourPhoto() has not been implemented.');
   }

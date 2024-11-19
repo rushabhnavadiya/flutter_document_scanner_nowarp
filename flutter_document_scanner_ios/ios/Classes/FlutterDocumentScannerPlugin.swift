@@ -13,38 +13,45 @@ enum ErrorsPlugin : Error {
 }
 
 public class FlutterDocumentScannerPlugin: NSObject, FlutterPlugin {
+    private let visionPlugin = VisionPlugin() // Add this line
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "flutter_document_scanner_ios", binaryMessenger: registrar.messenger())
         let instance = FlutterDocumentScannerPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
-    
+
+
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch (call.method) {
         case "findContourPhoto":
-            do {
-                guard let arguments = call.arguments as? Dictionary<String, Any>
-                        
-                else {
-                    throw ErrorsPlugin.stringError("Invalid Arguments")
+                guard let args = call.arguments as? [String: Any],
+                      let byteData = args["byteData"] as? FlutterStandardTypedData,
+                      let minContourArea = args["minContourArea"] as? Double else {
+                    result(FlutterError(
+                        code: "FIND_CONTOUR_PHOTO",
+                        message: "Invalid arguments",
+                        details: nil
+                    ))
+                    return
                 }
-                
-                let visionPlugin = VisionPlugin()
-                
+
+                // Extract optional parameters
+                let deviceOrientation = args["deviceOrientation"] as? Int
+                let sensorOrientation = args["sensorOrientation"] as? Int
+                let previewWidth = args["previewWidth"] as? Double
+                let previewHeight = args["previewHeight"] as? Double
+
                 visionPlugin.findContourPhoto(
                     result: result,
-                    byteData: arguments["byteData"] as! FlutterStandardTypedData,
-                    minContourArea: arguments["minContourArea"] as! Double
+                    byteData: byteData,
+                    minContourArea: minContourArea,
+                    deviceOrientation: deviceOrientation,
+                    sensorOrientation: sensorOrientation,
+                    previewWidth: previewWidth,
+                    previewHeight: previewHeight
                 )
-                
-            } catch {
-                result(FlutterError(
-                    code: "FlutterDocumentScanner-Error",
-                    message: "findContourPhoto \(error.localizedDescription)",
-                    details: error
-                ))
-            }
-            break;
+                break;
             
         case "adjustingPerspective":
             do {

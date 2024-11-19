@@ -4,10 +4,17 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
+// Copyright (c) 2021, Christian Betancourt
+// https://github.com/criistian14
+//
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file or at
+// https://opensource.org/licenses/MIT.
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:flutter_document_scanner_platform_interface/flutter_document_scanner_platform_interface.dart';
+import 'package:native_device_orientation/native_device_orientation.dart';
 
 /// An implementation of [FlutterDocumentScannerPlatform]
 /// that uses method channels.
@@ -21,12 +28,42 @@ class MethodChannelFlutterDocumentScanner
   Future<Contour?> findContourPhoto({
     required Uint8List byteData,
     required double minContourArea,
+    NativeDeviceOrientation? deviceOrientation,
+    int? sensorOrientation,
+    double? previewWidth,
+    double? previewHeight,
   }) async {
+    // Convert NativeDeviceOrientation to integer value
+    int? deviceOrientationValue;
+    if (deviceOrientation != null) {
+      switch (deviceOrientation) {
+        case NativeDeviceOrientation.portraitUp:
+          deviceOrientationValue = 0;
+          break;
+        case NativeDeviceOrientation.landscapeLeft:
+          deviceOrientationValue = 1;
+          break;
+        case NativeDeviceOrientation.portraitDown:
+          deviceOrientationValue = 2;
+          break;
+        case NativeDeviceOrientation.landscapeRight:
+          deviceOrientationValue = 3;
+          break;
+        default:
+        // Handle unknown orientation
+          deviceOrientationValue = 0;
+      }
+    }
+
     final contour = await methodChannel.invokeMapMethod<String, dynamic>(
       'findContourPhoto',
-      <String, Object>{
+      <String, Object?>{
         'byteData': byteData,
         'minContourArea': minContourArea,
+        'deviceOrientation': deviceOrientationValue,
+        'sensorOrientation': sensorOrientation,
+        'previewWidth': previewWidth,
+        'previewHeight': previewHeight,
       },
     );
 
@@ -49,10 +86,10 @@ class MethodChannelFlutterDocumentScanner
         'points': contour.points
             .map(
               (e) => {
-                'x': e.x,
-                'y': e.y,
-              },
-            )
+            'x': e.x,
+            'y': e.y,
+          },
+        )
             .toList(),
       },
     ).then((value) => value);
@@ -72,3 +109,4 @@ class MethodChannelFlutterDocumentScanner
     ).then((value) => value);
   }
 }
+

@@ -10,6 +10,7 @@ import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart' show Size;  // Add this import
 import 'package:flutter_document_scanner/src/models/area.dart';
 import 'package:flutter_document_scanner/src/ui/pages/crop_photo_document_page.dart';
 import 'package:flutter_document_scanner/src/ui/pages/edit_document_photo_page.dart';
@@ -17,6 +18,7 @@ import 'package:flutter_document_scanner/src/ui/pages/take_photo_document_page.d
 import 'package:flutter_document_scanner/src/utils/image_utils.dart';
 import 'package:flutter_document_scanner/src/utils/model_utils.dart';
 import 'package:flutter_document_scanner_platform_interface/flutter_document_scanner_platform_interface.dart';
+import 'package:native_device_orientation/native_device_orientation.dart';
 
 /// Status of the app
 enum AppStatus {
@@ -60,6 +62,9 @@ class AppState extends Equatable {
     this.statusEditPhoto = AppStatus.initial,
     this.currentFilterType = FilterType.natural,
     this.statusSavePhotoDocument = AppStatus.initial,
+    this.deviceOrientation,
+    this.sensorOrientation,
+    this.previewSize,
   });
 
   /// Initial state
@@ -100,6 +105,26 @@ class AppState extends Equatable {
   /// Status when the photo was saved
   final AppStatus statusSavePhotoDocument;
 
+  /// The device orientation when the photo was taken
+  final NativeDeviceOrientation? deviceOrientation;  // Change type
+
+  /// The camera sensor's orientation
+  final int? sensorOrientation;
+
+  final Size? previewSize;  // Add this
+
+  @override
+  String toString() {
+    return '''AppState {
+    currentPage: $currentPage,
+    picture: ${pictureInitial != null ? 'present' : 'null'},
+    contour: ${contourInitial != null ? 'present' : 'null'},
+    deviceOrientation: $deviceOrientation,
+    statusCropPhoto: $statusCropPhoto,
+    previewSize: $previewSize
+  }''';
+  }
+
   @override
   List<Object?> get props => [
         currentPage,
@@ -113,6 +138,9 @@ class AppState extends Equatable {
         statusEditPhoto,
         currentFilterType,
         statusSavePhotoDocument,
+        deviceOrientation,
+        sensorOrientation,
+        previewSize
       ];
 
   /// Creates a copy of this state but with the given fields replaced with
@@ -129,6 +157,9 @@ class AppState extends Equatable {
     AppStatus? statusEditPhoto,
     FilterType? currentFilterType,
     AppStatus? statusSavePhotoDocument,
+    NativeDeviceOrientation? deviceOrientation,
+    int? sensorOrientation,
+    Size? previewSize
   }) {
     return AppState(
       currentPage: currentPage ?? this.currentPage,
@@ -145,6 +176,54 @@ class AppState extends Equatable {
       currentFilterType: currentFilterType ?? this.currentFilterType,
       statusSavePhotoDocument:
           statusSavePhotoDocument ?? this.statusSavePhotoDocument,
+      deviceOrientation: deviceOrientation ?? this.deviceOrientation,
+      sensorOrientation: sensorOrientation ?? this.sensorOrientation,
+      previewSize: previewSize ?? this.previewSize,  // Add this
+
     );
+  }
+
+  // Add helper method to calculate effective scale
+  double getEffectiveScale() {
+    if (previewSize == null) return 1.0;
+
+    final isPortrait = deviceOrientation == NativeDeviceOrientation.portraitUp ||
+        deviceOrientation == NativeDeviceOrientation.portraitDown;
+
+    if (isPortrait) {
+      return previewSize!.height / previewSize!.width;
+    } else {
+      return previewSize!.width / previewSize!.height;
+    }
+  }
+
+  int getEffectiveOrientation() {
+    if (deviceOrientation == null || sensorOrientation == null) return 0;
+
+    // Convert device orientation to degrees
+    int deviceDegrees;
+    switch (deviceOrientation!) {
+      case NativeDeviceOrientation.portraitUp:
+        deviceDegrees = 0;
+        break;
+      case NativeDeviceOrientation.landscapeLeft:
+        deviceDegrees = 90;
+        break;
+      case NativeDeviceOrientation.portraitDown:
+        deviceDegrees = 180;
+        break;
+      case NativeDeviceOrientation.landscapeRight:
+        deviceDegrees = 270;
+        break;
+      default:
+        deviceDegrees = 0;  // Handle unknown orientation as portrait up
+        break;
+    }
+
+    // Now deviceDegrees is non-nullable
+    final totalRotation = (deviceDegrees + sensorOrientation!) % 360;
+
+    // Convert to orientation enum (0 = up, 1 = right, 2 = down, 3 = left)
+    return (totalRotation / 90).round() % 4;
   }
 }

@@ -11,12 +11,33 @@ class OpenCVPlugin {
         fun findContourPhoto(
             result: MethodChannel.Result,
             byteData: ByteArray,
-            minContourArea: Double
+            minContourArea: Double,
+            deviceOrientation: Int?,
+            sensorOrientation: Int?,
+            previewWidth: Double?,
+            previewHeight: Double?
         ) {
             try {
                 val src = Imgcodecs.imdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_UNCHANGED)
 
-                val documentContour = findBiggestContour(src, minContourArea)
+                // First apply sensor orientation correction
+                val sensorCorrected = when (sensorOrientation) {
+                    90 -> rotateImage(src, 90)
+                    180 -> rotateImage(src, 180)
+                    270 -> rotateImage(src, 270)
+                    else -> src // 0 degrees or null
+                }
+
+                // Then apply device orientation adjustment
+                val fullyRotated = when (deviceOrientation) {
+                    1 -> rotateImage(sensorCorrected, 270)  // landscapeLeft
+                    3 -> rotateImage(sensorCorrected, 90)   // landscapeRight
+                    2 -> rotateImage(sensorCorrected, 180)  // portraitDown
+                    else -> sensorCorrected                 // portraitUp or null
+                }
+
+                val documentContour = findBiggestContour(fullyRotated, minContourArea)
+
 
                 // TODO: Use for when to use real time transmission
                 // Scalar -> RGB(235, 228, 44)
@@ -29,16 +50,9 @@ class OpenCVPlugin {
                 Imgcodecs.imencode(".jpg", src, matOfByte)
                 val byteArray: ByteArray = matOfByte.toArray()
 
-
+                // Create response with the rotated dimensions
                 val points = mutableListOf<Map<String, Any>>()
-
                 if (documentContour != null) {
-                    points.add(
-                        mapOf(
-                            "x" to documentContour.toList()[0].x,
-                            "y" to documentContour.toList()[0].y
-                        )
-                    )
                     points.add(
                         mapOf(
                             "x" to documentContour.toList()[3].x,
@@ -57,13 +71,18 @@ class OpenCVPlugin {
                             "y" to documentContour.toList()[1].y
                         )
                     )
+                    points.add(mapOf(
+                            "x" to documentContour.toList()[0].x,
+                            "y" to documentContour.toList()[0].y
+                        )
+                    )
                 }
 
                 val resultEnd = mapOf(
-                    "height" to src.height(),
-                    "width" to src.width(),
+                    "height" to fullyRotated.height(),
+                    "width" to fullyRotated.width(),
                     "points" to points,
-                    "image" to byteArray
+                    "image" to matToByteArray(fullyRotated)
                 )
 
                 result.success(resultEnd)
@@ -71,6 +90,31 @@ class OpenCVPlugin {
             } catch (e: java.lang.Exception) {
                 result.error("FlutterDocumentScanner-Error", "Android: " + e.message, e)
             }
+        }
+
+        private fun matToByteArray(mat: Mat): ByteArray {
+            val matOfByte = MatOfByte()
+            Imgcodecs.imencode(".jpg", mat, matOfByte)
+            return matOfByte.toArray()
+        }
+
+        private fun rotateImage(source: Mat, angle: Int): Mat {
+            if (angle == 0) return source
+
+            val rotation = Mat(source.size(), source.type())
+            val center = Point(source.cols() / 2.0, source.rows() / 2.0)
+            val rotationMatrix = Imgproc.getRotationMatrix2D(center, angle.toDouble(), 1.0)
+
+            // Adjust matrix for rotations that would clip the image
+            if (angle == 90 || angle == 270) {
+                val temp = rotation.size()
+                rotation.create(Size(temp.height, temp.width), rotation.type())
+                rotationMatrix.put(0, 2, (rotation.width() - source.width()) / 2.0)
+                rotationMatrix.put(1, 2, (rotation.height() - source.height()) / 2.0)
+            }
+
+            Imgproc.warpAffine(source, rotation, rotationMatrix, rotation.size())
+            return rotation
         }
 
         private fun findBiggestContour(src: Mat, minContourArea: Double): MatOfPoint? {

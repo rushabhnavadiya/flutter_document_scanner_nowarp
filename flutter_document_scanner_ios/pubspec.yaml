@@ -18,7 +18,9 @@ flutter:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_document_scanner_platform_interface: ^1.0.0
+  flutter_document_scanner_platform_interface:
+    path: "/Users/nige.karus/GitHubDev/flutter_document_scanner_nowarp/flutter_document_scanner_platform_interface"
+  native_device_orientation: ^2.0.3
 
 dev_dependencies:
   flutter_test:

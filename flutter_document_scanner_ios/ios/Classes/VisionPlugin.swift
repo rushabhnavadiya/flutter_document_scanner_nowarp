@@ -11,34 +11,154 @@ import Vision
 import UIKit
 
 
+extension UIImage.Orientation {
+    func toCGImagePropertyOrientation() -> CGImagePropertyOrientation {
+        switch self {
+        case .up: return .up
+        case .upMirrored: return .upMirrored
+        case .down: return .down
+        case .downMirrored: return .downMirrored
+        case .left: return .left
+        case .leftMirrored: return .leftMirrored
+        case .right: return .right
+        case .rightMirrored: return .rightMirrored
+        @unknown default: return .up
+        }
+    }
+}
+
 class VisionPlugin {
-    func findContourPhoto(result: @escaping FlutterResult, byteData: FlutterStandardTypedData, minContourArea: Double) {
+    func findContourPhoto(
+            result: @escaping FlutterResult,
+            byteData: FlutterStandardTypedData,
+            minContourArea: Double,
+            deviceOrientation: Int?,
+            sensorOrientation: Int?,
+            previewWidth: Double?,
+            previewHeight: Double?
+        ) {
         guard let image = UIImage(data: byteData.data) else {
             result(FlutterError(code: "FIND_CONTOUR_PHOTO", message: "Invalid ByteData", details: nil))
             return
         }
-        
+
+        // Get the base image orientation
+        var imageOrientation = image.imageOrientation
+
+        // First apply sensor orientation if available
+        if let sensorOrientation = sensorOrientation {
+            // Convert sensor orientation (in degrees) to UIImage.Orientation
+            switch sensorOrientation {
+            case 0:
+                imageOrientation = .up
+            case 90:
+                imageOrientation = .right
+            case 180:
+                imageOrientation = .down
+            case 270:
+                imageOrientation = .left
+            default:
+                imageOrientation = .up
+            }
+        }
+
+        // Then apply device orientation if available
+        if let deviceOrientation = deviceOrientation {
+            // Store the current orientation to combine with device orientation
+            let currentOrientation = imageOrientation
+
+            // Convert Flutter device orientation to rotation angle
+            // 0 = portraitUp, 1 = landscapeLeft, 2 = portraitDown, 3 = landscapeRight
+            let deviceRotation: Int
+            switch deviceOrientation {
+            case 0: // portraitUp
+                deviceRotation = 0
+            case 1: // landscapeLeft
+                deviceRotation = 270
+            case 2: // portraitDown
+                deviceRotation = 180
+            case 3: // landscapeRight
+                deviceRotation = 90
+            default:
+                deviceRotation = 0
+            }
+
+            // Convert current orientation to degrees
+            let currentDegrees: Int
+            switch currentOrientation {
+            case .up:
+                currentDegrees = 0
+            case .right:
+                currentDegrees = 90
+            case .down:
+                currentDegrees = 180
+            case .left:
+                currentDegrees = 270
+            default:
+                currentDegrees = 0
+            }
+
+            // Combine rotations
+            let totalRotation = (currentDegrees + deviceRotation) % 360
+
+            // Convert back to UIImage.Orientation
+            switch totalRotation {
+            case 0:
+                imageOrientation = .up
+            case 90:
+                imageOrientation = .right
+            case 180:
+                imageOrientation = .down
+            case 270:
+                imageOrientation = .left
+            default:
+                imageOrientation = .up
+            }
+        }
+
         guard let cgImage = image.cgImage else {
             result(FlutterError(code: "FIND_CONTOUR_PHOTO", message: "Invalid CGImage", details: nil))
             return
         }
-        
+
         let request = VNDetectRectanglesRequest { request, error in
             DispatchQueue.main.async {
-                guard let results = request.results as? [VNRectangleObservation], let rectangle = results.first else {
+                guard let results = request.results as? [VNRectangleObservation],
+                      let rectangle = results.first else {
                     result(nil)
                     return
                 }
-                
-                let topLeft = self.convertToPointOfInterest(from: rectangle.topLeft, imageSize: image.size)
-                let topRight = self.convertToPointOfInterest(from: rectangle.topRight, imageSize: image.size)
-                let bottomLeft = self.convertToPointOfInterest(from: rectangle.bottomLeft, imageSize: image.size)
-                let bottomRight = self.convertToPointOfInterest(from: rectangle.bottomRight, imageSize: image.size)
-                
-                
+
+                // Convert points using orientation
+                let topLeft = self.convertToPointOfInterest(
+                    from: rectangle.topLeft,
+                    imageSize: image.size,
+                    orientation: imageOrientation
+                )
+                let topRight = self.convertToPointOfInterest(
+                    from: rectangle.topRight,
+                    imageSize: image.size,
+                    orientation: imageOrientation
+                )
+                let bottomLeft = self.convertToPointOfInterest(
+                    from: rectangle.bottomLeft,
+                    imageSize: image.size,
+                    orientation: imageOrientation
+                )
+                let bottomRight = self.convertToPointOfInterest(
+                    from: rectangle.bottomRight,
+                    imageSize: image.size,
+                    orientation: imageOrientation
+                )
+
+                // Use preview dimensions if provided, otherwise use image dimensions
+                let width = previewWidth ?? Double(image.size.width)
+                let height = previewHeight ?? Double(image.size.height)
+
                 let resultEnd = [
-                    "height": NSNumber(value: Int(image.size.height)),
-                    "width": NSNumber(value: Int(image.size.width)),
+                    "height": NSNumber(value: Int(height)),
+                    "width": NSNumber(value: Int(width)),
+                    "orientation": NSNumber(value: imageOrientation.rawValue),
                     "points": [
                         [
                             "x": NSNumber(value: topLeft.x),
@@ -57,37 +177,65 @@ class VisionPlugin {
                             "y": NSNumber(value: bottomLeft.y),
                         ],
                     ],
-                    "image": nil,
                 ]
-                
-                result (resultEnd)
+
+                result(resultEnd)
             }
         }
-        
-        // TODO: add this config in flutter
-        request.minimumConfidence = 0.5
-        request.maximumObservations = 1 // Solo el contorno más grande
-        request.quadratureTolerance = 25.0
-        
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try handler.perform([request])
-            } catch {
-                DispatchQueue.main.async {
-                    result(nil)
-                }
-            }
+
+        // Configure request
+        request.minimumAspectRatio = 0.5
+        request.maximumAspectRatio = 1.5
+        request.minimumSize = 0.2
+        request.maximumObservations = 1
+
+        let handler = VNImageRequestHandler(cgImage: cgImage, orientation: imageOrientation.toCGImagePropertyOrientation())
+        do {
+            try handler.perform([request])
+        } catch {
+            result(FlutterError(code: "FIND_CONTOUR_PHOTO", message: error.localizedDescription, details: nil))
         }
     }
     
-    private func convertToPointOfInterest(from point: CGPoint, imageSize: CGSize) -> CGPoint {
-        let x = point.y * imageSize.width
-        let y = point.x * imageSize.height
-        
-        return CGPoint(x: x, y: y)
-    }
-    
+   private func convertToPointOfInterest(
+       from point: CGPoint,
+       imageSize: CGSize,
+       orientation: UIImage.Orientation
+   ) -> CGPoint {
+       // The Vision framework returns normalized coordinates (0.0 to 1.0)
+       // We need to convert these to actual pixel coordinates while handling orientation
+
+       switch orientation {
+       case .right: // 3
+           // When rotated right, swap x/y and adjust y
+           return CGPoint(
+               x: point.y * imageSize.width,
+               y: (1 - point.x) * imageSize.height
+           )
+
+       case .left: // 2
+           // When rotated left, swap x/y and adjust x
+           return CGPoint(
+               x: (1 - point.y) * imageSize.width,
+               y: point.x * imageSize.height
+           )
+
+       case .down: // 1
+           // When upside down, invert both coordinates
+           return CGPoint(
+               x: (1 - point.x) * imageSize.width,
+               y: (1 - point.y) * imageSize.height
+           )
+
+       default: // .up (0)
+           // Normal orientation
+           return CGPoint(
+               x: point.x * imageSize.width,
+               y: point.y * imageSize.height
+           )
+       }
+   }
+
     func adjustingPerspective(
         result: @escaping FlutterResult,
         byteData: FlutterStandardTypedData,
@@ -97,13 +245,15 @@ class VisionPlugin {
             result(FlutterError(code: "ADJUSTING_PERSPECTIVE", message: "Invalid ByteData", details: nil))
             return
         }
-        
-        guard let ciImage = CIImage(image: image)?.oriented(.rightMirrored) else {
+
+        // Create oriented CIImage, maintaining original orientation
+        guard let ciImage = CIImage(image: image) else {
             result(FlutterError(code: "ADJUSTING_PERSPECTIVE", message: "Invalid CIImage", details: nil))
             return
         }
-        
-        
+
+        // The points we receive are already adjusted for orientation,
+        // so we can use them directly
         guard points.count == 4,
               let topLeft = CGPoint(dictionary: points[0]),
               let topRight = CGPoint(dictionary: points[1]),
@@ -112,7 +262,7 @@ class VisionPlugin {
             result(FlutterError(code: "ADJUSTING_PERSPECTIVE", message: "Invalid Points", details: nil))
             return
         }
-        
+
         guard let perspectiveCorrection = CIFilter(name: "CIPerspectiveCorrection") else {
             result(FlutterError(
                 code: "ADJUSTING_PERSPECTIVE",
@@ -121,14 +271,14 @@ class VisionPlugin {
             ))
             return
         }
-        
+
+        // Apply perspective correction
         perspectiveCorrection.setValue(ciImage, forKey: kCIInputImageKey)
         perspectiveCorrection.setValue(CIVector(cgPoint: topLeft), forKey: "inputTopLeft")
         perspectiveCorrection.setValue(CIVector(cgPoint: topRight), forKey: "inputTopRight")
         perspectiveCorrection.setValue(CIVector(cgPoint: bottomLeft), forKey: "inputBottomLeft")
         perspectiveCorrection.setValue(CIVector(cgPoint: bottomRight), forKey: "inputBottomRight")
-        
-        
+
         guard let outputImage = perspectiveCorrection.outputImage else {
             result(FlutterError(
                 code: "ADJUSTING_PERSPECTIVE",
@@ -137,21 +287,27 @@ class VisionPlugin {
             ))
             return
         }
-        
-        
+
         let context = CIContext(options: nil)
         guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
-            result(FlutterError(code: "ADJUSTING_PERSPECTIVE", message: "Could not create CGImage from CIImage", details: nil))
+            result(FlutterError(code: "ADJUSTING_PERSPECTIVE",
+                              message: "Could not create CGImage from CIImage",
+                              details: nil))
             return
         }
-        
-        let uiImage = UIImage(cgImage: cgImage)
+
+        // Create new UIImage maintaining the original orientation
+        let uiImage = UIImage(cgImage: cgImage,
+                             scale: image.scale,
+                             orientation: image.imageOrientation)
+
         guard let imageData = uiImage.jpegData(compressionQuality: 1) else {
-            result(FlutterError(code: "ADJUSTING_PERSPECTIVE", message: "Could not get JPEG data from UIImage", details: nil))
+            result(FlutterError(code: "ADJUSTING_PERSPECTIVE",
+                              message: "Could not get JPEG data from UIImage",
+                              details: nil))
             return
         }
-        
-        
+
         result(FlutterStandardTypedData(bytes: imageData))
     }
     

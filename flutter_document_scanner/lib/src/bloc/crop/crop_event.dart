@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_document_scanner/src/models/area.dart';
+import 'package:native_device_orientation/native_device_orientation.dart';
 
 /// Class to create events
 abstract class CropEvent extends Equatable {}
@@ -23,6 +24,9 @@ class CropAreaInitialized extends CropEvent {
     required this.screenSize,
     required this.positionImage,
     required this.defaultAreaInitial,
+    required this.orientation,
+    this.deviceOrientation,  // Add these new parameters
+    this.previewSize,
   });
 
   /// Image contour in case it is found
@@ -40,14 +44,27 @@ class CropAreaInitialized extends CropEvent {
   /// Position of the image in the screen
   final Rect positionImage;
 
+  /// Device orientation when photo was taken
+  final NativeDeviceOrientation? deviceOrientation;  // Add this
+
+  /// Preview size from camera
+  final Size? previewSize;  // Add this
+
+  final int orientation;  // Add this field
+
+
   @override
   List<Object?> get props => [
-        areaInitial,
-        image,
-        screenSize,
-        positionImage,
-      ];
+    areaInitial,
+    image,
+    screenSize,
+    positionImage,
+    deviceOrientation,  // Add these to props
+    previewSize,
+    orientation
+  ];
 }
+
 
 /// Define which dot is the one being moved
 enum DotPosition {
