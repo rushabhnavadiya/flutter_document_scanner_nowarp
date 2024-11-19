@@ -24,123 +24,71 @@ class ImageUtils {
         NativeDeviceOrientation? deviceOrientation,
         int? sensorOrientation,
         Size? previewSize,
-        Size? imageSize,  // Add imageSize parameter
+        Size? imageSize,
       }) {
     debugPrint("""📱 imageRect called with:
-    Screen size: $screenSize
-    Device orientation: $deviceOrientation
-    Sensor orientation: $sensorOrientation
-    Preview size: $previewSize
-    Image size: $imageSize""");
+        Screen size: $screenSize
+        Device orientation: $deviceOrientation
+        Preview size: $previewSize
+        Image size: $imageSize""");
 
-    // Validate input dimensions
-    if (screenSize.width <= 0 || screenSize.height <= 0) {
-      debugPrint('⚠️ Invalid screen size, using fallback dimensions');
-      return const Rect.fromLTWH(0, 0, 360, 640);
-    }
+    // Use referenceSize for calculations - prioritize actual image dimensions
+    Size referenceSize = imageSize ?? previewSize ?? screenSize;
 
-    // Use preview size, image size, or screen size for aspect ratio calculation
-    Size referenceSize;
-    if (previewSize != null && previewSize.width > 0 && previewSize.height > 0) {
-      referenceSize = previewSize;
-      debugPrint('📏 Using preview size for calculations');
-    } else if (imageSize != null && imageSize.width > 0 && imageSize.height > 0) {
-      referenceSize = imageSize;
-      debugPrint('📏 Using image size for calculations');
-    } else {
-      debugPrint('⚠️ Using screen size as fallback');
-      return Rect.fromLTWH(0, 0, screenSize.width, screenSize.height);
-    }
+    // Calculate if we're in landscape mode
+    bool isLandscape = deviceOrientation == NativeDeviceOrientation.landscapeLeft ||
+        deviceOrientation == NativeDeviceOrientation.landscapeRight;
 
-    // Calculate aspect ratios
-    final sourceAspectRatio = referenceSize.height / referenceSize.width;
-    final screenAspectRatio = screenSize.height / screenSize.width;
+    // In landscape, we want to fill the width and maintain aspect ratio
+    if (isLandscape) {
+      // For landscape, we want to maximize width usage
+      double width = screenSize.width;
+      // Calculate height based on original image aspect ratio
+      double height = width * (referenceSize.height / referenceSize.width);
 
-    debugPrint("""📐 Aspect ratios:
-    Source: $sourceAspectRatio
-    Screen: $screenAspectRatio""");
-
-    // Determine rotation based on device and sensor orientation
-    bool isRotated = false;
-    if (deviceOrientation != null) {
-      switch (deviceOrientation) {
-        case NativeDeviceOrientation.landscapeLeft:
-        case NativeDeviceOrientation.landscapeRight:
-          isRotated = true;
-          break;
-        case NativeDeviceOrientation.portraitUp:
-        case NativeDeviceOrientation.portraitDown:
-          isRotated = false;
-          break;
-        default:
-          isRotated = false;
-      }
-    }
-
-    // Adjust for sensor orientation
-    if (sensorOrientation != null) {
-      if (sensorOrientation == 90 || sensorOrientation == 270) {
-        isRotated = !isRotated; // Flip rotation state
-      }
-    }
-
-    debugPrint('🔄 Final rotation state: $isRotated');
-
-    // Calculate dimensions and position
-    double width, height, left = 0, top = 0;
-    if (isRotated) {
-      // For landscape, we want to fill the width first
-      final effectiveAspectRatio = 1 / sourceAspectRatio;
-
-      // Always start with full width
-      width = screenSize.width;
-      height = width / effectiveAspectRatio;
-
-      // If height exceeds screen height, scale down
+      // If height is too large, scale down to fit screen
       if (height > screenSize.height) {
         height = screenSize.height;
-        width = height * effectiveAspectRatio;
+        width = height * (referenceSize.width / referenceSize.height);
       }
 
       // Center the image
-      left = (screenSize.width - width) / 2;
-      top = (screenSize.height - height) / 2;
+      double left = (screenSize.width - width) / 2;
+      double top = (screenSize.height - height) / 2;
 
-      debugPrint('''📏 Landscape calculations:
-      Screen size: ${screenSize.width}x${screenSize.height}
-      Image size: ${width}x${height}
-      Position: ($left, $top)
-      Aspect ratio: $effectiveAspectRatio
-  ''');
+      debugPrint("""📐 Landscape layout calculated:
+            Width: $width
+            Height: $height
+            Left: $left
+            Top: $top""");
+
+      return Rect.fromLTWH(left, top, width, height);
     } else {
-      if (sourceAspectRatio > screenAspectRatio) {
-        // Image is taller relative to screen
-        width = screenSize.width;
-        height = width * sourceAspectRatio;
-        top = (screenSize.height - height) / 2;
-        left = 0;
-      } else {
-        // Image is wider relative to screen
+      // For portrait, maintain original aspect ratio logic
+      double srcRatio = referenceSize.height / referenceSize.width;
+      double screenRatio = screenSize.height / screenSize.width;
+
+      double width, height;
+      double left = 0, top = 0;
+
+      if (srcRatio > screenRatio) {
         height = screenSize.height;
-        width = height / sourceAspectRatio;
+        width = height / srcRatio;
         left = (screenSize.width - width) / 2;
-        top = 0;
+      } else {
+        width = screenSize.width;
+        height = width * srcRatio;
+        top = (screenSize.height - height) / 2;
       }
+
+      debugPrint("""📐 Portrait layout calculated:
+            Width: $width
+            Height: $height
+            Left: $left
+            Top: $top""");
+
+      return Rect.fromLTWH(left, top, width, height);
     }
-
-    debugPrint("""📍 Final dimensions:
-    Width: $width
-    Height: $height
-    Left: $left
-    Top: $top""");
-    // Ensure we're not exceeding screen bounds
-    assert(width <= screenSize.width, 'Width exceeds screen bounds');
-    assert(height <= screenSize.height, 'Height exceeds screen bounds');
-
-    final rect = Rect.fromLTWH(left, top, width, height);
-    debugPrint('📦 Final rect: $rect');
-
-    return rect;
   }
   /// Apply filters to the image with opencv
   /// Then get the contours and return only the largest one that has four sides

@@ -41,8 +41,6 @@ class CropBloc extends Bloc<CropEvent, CropState> {
   /// Screen size by adjusting the screen image position
   late Size newScreenSize;
 
-  /// Position the dots according to the
-  /// sent contour [CropAreaInitialized.areaInitial]
   Future<void> _areaInitialized(
       CropAreaInitialized event,
       Emitter<CropState> emit,
@@ -50,155 +48,157 @@ class CropBloc extends Bloc<CropEvent, CropState> {
     debugPrint('🎯 Initializing crop area');
 
     // Calculate effective screen dimensions
-    final effectiveWidth = event.screenSize.width - event.positionImage.left - event.positionImage.right;
-    final effectiveHeight = event.screenSize.height - event.positionImage.top - event.positionImage.bottom;
-
-    // Ensure we have positive dimensions
-    if (effectiveWidth <= 0 || effectiveHeight <= 0) {
-      debugPrint('⚠️ Invalid effective dimensions calculated. Using default margins.');
-      // Use reasonable margins (10% of screen size)
-      final horizontalMargin = event.screenSize.width * 0.1;
-      final verticalMargin = event.screenSize.height * 0.1;
-
-      newScreenSize = Size(
-          event.screenSize.width - (horizontalMargin * 2),
-          event.screenSize.height - (verticalMargin * 2)
-      );
-    } else {
-      newScreenSize = Size(effectiveWidth, effectiveHeight);
-    }
-
-    debugPrint('''📏 Screen dimensions:
-    Full screen: ${event.screenSize.width}x${event.screenSize.height}
-    Effective area: ${newScreenSize.width}x${newScreenSize.height}
-    Original margins: L:${event.positionImage.left} R:${event.positionImage.right} T:${event.positionImage.top} B:${event.positionImage.bottom}
-  ''');
-    // Decode image to get dimensions
-    final imageDecoded = await decodeImageFromList(event.image.readAsBytesSync());
-    final imageSize = Size(imageDecoded.width.toDouble(), imageDecoded.height.toDouble());
-
-    _imageRect = _imageUtils.imageRect(
-      newScreenSize,
-      deviceOrientation: event.deviceOrientation,
-      previewSize: event.previewSize,
-      imageSize: imageSize,
+    newScreenSize = Size(
+        event.screenSize.width - event.positionImage.left - event.positionImage.right,
+        event.screenSize.height - event.positionImage.top - event.positionImage.bottom
     );
 
-    // Determine if we're in landscape mode
-    bool isLandscape = event.deviceOrientation == NativeDeviceOrientation.landscapeLeft ||
+    // Decode image to get dimensions
+    final imageDecoded = await decodeImageFromList(event.image.readAsBytesSync());
+
+    // Get image dimensions and orientation
+    final bool isLandscape = event.deviceOrientation == NativeDeviceOrientation.landscapeLeft ||
         event.deviceOrientation == NativeDeviceOrientation.landscapeRight;
 
-    debugPrint('''📍 Initialization values:
-      Image size: ${imageSize.width}x${imageSize.height}
-      Screen size: ${newScreenSize.width}x${newScreenSize.height}
-      Image rect: left=${_imageRect.left}, top=${_imageRect.top}, right=${_imageRect.right}, bottom=${_imageRect.bottom}
-      Is Landscape: $isLandscape
-      Using contours: ${event.areaInitial != null}
+    debugPrint('''📏 Initialization parameters:
+        Device orientation: ${event.deviceOrientation}
+        Screen size: ${newScreenSize.width}x${newScreenSize.height}
+        Image size: ${imageDecoded.width}x${imageDecoded.height}
+        Is landscape: $isLandscape
+    ''');
+
+    // Calculate image rect with proper orientation
+    _imageRect = _imageUtils.imageRect(
+        newScreenSize,
+        deviceOrientation: event.deviceOrientation,
+        previewSize: event.previewSize,
+        imageSize: Size(imageDecoded.width.toDouble(), imageDecoded.height.toDouble())
+    );
+
+    debugPrint('''📐 Image rect calculated:
+        Left: ${_imageRect.left}
+        Top: ${_imageRect.top}
+        Width: ${_imageRect.width}
+        Height: ${_imageRect.height}
     ''');
 
     Area area;
     if (isLandscape) {
-      // Landscape orientation calculations
-      final centerX = _imageRect.left + (_imageRect.width / 2);
-      final centerY = _imageRect.top + (_imageRect.height / 2);
+      // For landscape, we want to rotate our coordinate system 90 degrees
+      final defaultWidth = _imageRect.width * 0.8;  // 80% of available width
+      final defaultHeight = _imageRect.height * 0.8; // 80% of available height
 
-      // Swap width and height for scaling in landscape
-      final adjustedScaleX = _imageRect.height / imageDecoded.width;
-      final adjustedScaleY = _imageRect.width / imageDecoded.height;
+      // Calculate margins for centering
+      final horizontalMargin = (_imageRect.width - defaultWidth) / 2;
+      final verticalMargin = (_imageRect.height - defaultHeight) / 2;
 
-      if (event.areaInitial != null) {
-        area = Area(
-            topLeft: Point(
-                centerX - ((event.areaInitial!.topLeft.y * adjustedScaleY) / 2),
-                centerY - ((event.areaInitial!.topLeft.x * adjustedScaleX) / 2)
-            ),
-            topRight: Point(
-                centerX + ((event.areaInitial!.topRight.y * adjustedScaleY) / 2),
-                centerY - ((event.areaInitial!.topRight.x * adjustedScaleX) / 2)
-            ),
-            bottomLeft: Point(
-                centerX - ((event.areaInitial!.bottomLeft.y * adjustedScaleY) / 2),
-                centerY + ((event.areaInitial!.bottomLeft.x * adjustedScaleX) / 2)
-            ),
-            bottomRight: Point(
-                centerX + ((event.areaInitial!.bottomRight.y * adjustedScaleY) / 2),
-                centerY + ((event.areaInitial!.bottomRight.x * adjustedScaleX) / 2)
-            ),
-            orientation: event.orientation,
-            imageWidth: imageDecoded.height,
-            imageHeight: imageDecoded.width
-        );
-      } else {
-        // Default landscape area
-        final defaultHeight = _imageRect.width * 0.8;
-        final defaultWidth = _imageRect.height * 0.8;
-        final left = _imageRect.left + (_imageRect.width - defaultWidth) / 2;
-        final top = _imageRect.top + (_imageRect.height - defaultHeight) / 2;
+      // Base coordinates relative to image rect
+      final left = _imageRect.left + horizontalMargin;
+      final top = _imageRect.top + verticalMargin;
 
-        area = Area(
-            topLeft: Point(left, top),
-            topRight: Point(left + defaultWidth, top),
-            bottomLeft: Point(left, top + defaultHeight),
-            bottomRight: Point(left + defaultWidth, top + defaultHeight),
-            orientation: event.orientation,
-            imageWidth: imageDecoded.height,
-            imageHeight: imageDecoded.width
-        );
-      }
+      debugPrint('''📏 Landscape layout:
+            Default width: $defaultWidth
+            Default height: $defaultHeight
+            Left margin: $horizontalMargin
+            Top margin: $verticalMargin
+            Base coordinates: ($left, $top)
+        ''');
+
+      area = Area(
+          topLeft: Point(left, top),
+          topRight: Point(left + defaultWidth, top),
+          bottomLeft: Point(left, top + defaultHeight),
+          bottomRight: Point(left + defaultWidth, top + defaultHeight),
+          orientation: event.orientation,
+          // For landscape, we swap width/height to match the rotated view
+          imageWidth: imageDecoded.height,
+          imageHeight: imageDecoded.width
+      );
+
+      debugPrint('''📍 Created landscape area:
+            TL: ${area.topLeft}
+            TR: ${area.topRight}
+            BL: ${area.bottomLeft}
+            BR: ${area.bottomRight}
+            Orientation: ${area.orientation}
+        ''');
     } else {
-      // Portrait orientation calculations
-      if (event.areaInitial != null) {
-        final scaleX = _imageRect.width / imageDecoded.width;
-        final scaleY = _imageRect.height / imageDecoded.height;
+      // Portrait mode - standard layout
+      final defaultWidth = _imageRect.width * 0.8;
+      final defaultHeight = _imageRect.height * 0.8;
+      final left = _imageRect.left + (_imageRect.width - defaultWidth) / 2;
+      final top = _imageRect.top + (_imageRect.height - defaultHeight) / 2;
 
-        area = Area(
-            topLeft: Point(
-                _imageRect.left + (event.areaInitial!.topLeft.x * scaleX),
-                _imageRect.top + (event.areaInitial!.topLeft.y * scaleY)
-            ),
-            topRight: Point(
-                _imageRect.left + (event.areaInitial!.topRight.x * scaleX),
-                _imageRect.top + (event.areaInitial!.topRight.y * scaleY)
-            ),
-            bottomLeft: Point(
-                _imageRect.left + (event.areaInitial!.bottomLeft.x * scaleX),
-                _imageRect.top + (event.areaInitial!.bottomLeft.y * scaleY)
-            ),
-            bottomRight: Point(
-                _imageRect.left + (event.areaInitial!.bottomRight.x * scaleX),
-                _imageRect.top + (event.areaInitial!.bottomRight.y * scaleY)
-            ),
-            orientation: event.orientation,
-            imageWidth: imageDecoded.width,
-            imageHeight: imageDecoded.height
-        );
-      } else {
-        // Default portrait area
-        final defaultWidth = _imageRect.width * 0.8;
-        final defaultHeight = _imageRect.height * 0.8;
-        final left = _imageRect.left + (_imageRect.width - defaultWidth) / 2;
-        final top = _imageRect.top + (_imageRect.height - defaultHeight) / 2;
+      area = Area(
+          topLeft: Point(left, top),
+          topRight: Point(left + defaultWidth, top),
+          bottomLeft: Point(left, top + defaultHeight),
+          bottomRight: Point(left + defaultWidth, top + defaultHeight),
+          orientation: event.orientation,
+          imageWidth: imageDecoded.width,
+          imageHeight: imageDecoded.height
+      );
 
-        area = Area(
-            topLeft: Point(left, top),
-            topRight: Point(left + defaultWidth, top),
-            bottomLeft: Point(left, top + defaultHeight),
-            bottomRight: Point(left + defaultWidth, top + defaultHeight),
-            orientation: event.orientation,
-            imageWidth: imageDecoded.width,
-            imageHeight: imageDecoded.height
-        );
-      }
+      debugPrint('''📍 Created portrait area:
+            TL: ${area.topLeft}
+            TR: ${area.topRight}
+            BL: ${area.bottomLeft}
+            BR: ${area.bottomRight}
+            Orientation: ${area.orientation}
+        ''');
     }
+
+    // Ensure all points are within bounds
+    area = _ensureAreaWithinBounds(area, _imageRect);
 
     emit(state.copyWith(area: area));
   }
 
-  // Make sure to access minDistanceDots through _dotUtils
+  Area _ensureAreaWithinBounds(Area area, Rect bounds) {
+      Point<double> clampPoint(Point<double> point) {
+        return Point(
+            point.x.clamp(bounds.left, bounds.right),
+            point.y.clamp(bounds.top, bounds.bottom)
+        );
+      }
+
+      final clampedArea = Area(
+          topLeft: clampPoint(area.topLeft),
+          topRight: clampPoint(area.topRight),
+          bottomLeft: clampPoint(area.bottomLeft),
+          bottomRight: clampPoint(area.bottomRight),
+          orientation: area.orientation,
+          imageWidth: area.imageWidth,
+          imageHeight: area.imageHeight
+      );
+
+      // If points were clamped, log the changes
+      if (clampedArea != area) {
+        debugPrint('''⚠️ Area points were clamped:
+            Original: TL:${area.topLeft}, TR:${area.topRight}, BL:${area.bottomLeft}, BR:${area.bottomRight}
+            Clamped: TL:${clampedArea.topLeft}, TR:${clampedArea.topRight}, BL:${clampedArea.bottomLeft}, BR:${clampedArea.bottomRight}
+        ''');
+      }
+
+      return clampedArea;
+    }
+
   Future<void> _dotMoved(
       CropDotMoved event,
       Emitter<CropState> emit,
       ) async {
+    debugPrint('''👆 Dot move event received:
+   Position: ${event.dotPosition}
+   Delta X: ${event.deltaX}
+   Delta Y: ${event.deltaY}
+   Image rect: left=${_imageRect.left}, top=${_imageRect.top}, right=${_imageRect.right}, bottom=${_imageRect.bottom}
+   Current area:
+     topLeft: ${state.area.topLeft}
+     topRight: ${state.area.topRight}
+     bottomLeft: ${state.area.bottomLeft}
+     bottomRight: ${state.area.bottomRight}
+ ''');
+
     Area newArea;
     switch (event.dotPosition) {
       case DotPosition.topRight:
@@ -255,9 +255,16 @@ class CropBloc extends Bloc<CropEvent, CropState> {
         break;
     }
 
+    debugPrint('''✨ After movement:
+   New area:
+     topLeft: ${newArea.topLeft}
+     topRight: ${newArea.topRight}
+     bottomLeft: ${newArea.bottomLeft}
+     bottomRight: ${newArea.bottomRight}
+ ''');
+
     emit(state.copyWith(area: newArea));
   }
-
   int _calculateOrientation(NativeDeviceOrientation? deviceOrientation) {
     if (deviceOrientation == null) return 0;
 
@@ -312,7 +319,7 @@ class CropBloc extends Bloc<CropEvent, CropState> {
 
     Point<double> scaledTopLeft, scaledTopRight, scaledBottomLeft, scaledBottomRight;
     if (isLandscape) {
-      // Adjust scaling for landscape orientation
+      // Landscape transformation code remains the same
       final adjustedScaleX = imageDecoded.height / _imageRect.width;
       final adjustedScaleY = imageDecoded.width / _imageRect.height;
 
@@ -321,54 +328,89 @@ class CropBloc extends Bloc<CropEvent, CropState> {
         Adjusted scales: ($adjustedScaleX, $adjustedScaleY)
     ''');
 
-      // Transform coordinates for landscape orientation
-      // Rotate 90 degrees counterclockwise and scale
-      scaledTopLeft = Point(
-          ((state.area.topLeft.x - _imageRect.left) * adjustedScaleX),
-          ((state.area.topLeft.y - _imageRect.top) * adjustedScaleY)
-      );
-      scaledTopRight = Point(
-          ((state.area.topRight.x - _imageRect.left) * adjustedScaleX),
-          ((state.area.topRight.y - _imageRect.top) * adjustedScaleY)
-      );
-      scaledBottomLeft = Point(
-          ((state.area.bottomLeft.x - _imageRect.left) * adjustedScaleX),
-          ((state.area.bottomLeft.y - _imageRect.top) * adjustedScaleY)
-      );
-      scaledBottomRight = Point(
-          ((state.area.bottomRight.x - _imageRect.left) * adjustedScaleX),
-          ((state.area.bottomRight.y - _imageRect.top) * adjustedScaleY)
-      );
-
-      // Rotate points 90 degrees clockwise
-      final rotatedPoints = [
-        Point(imageDecoded.width - scaledTopLeft.y, scaledTopLeft.x),
-        Point(imageDecoded.width - scaledTopRight.y, scaledTopRight.x),
-        Point(imageDecoded.width - scaledBottomLeft.y, scaledBottomLeft.x),
-        Point(imageDecoded.width - scaledBottomRight.y, scaledBottomRight.x),
+      // Normalize and rotate points for landscape
+      final normalizedPoints = [
+        Point(
+            (state.area.topLeft.x - _imageRect.left) / _imageRect.width,
+            (state.area.topLeft.y - _imageRect.top) / _imageRect.height
+        ),
+        Point(
+            (state.area.topRight.x - _imageRect.left) / _imageRect.width,
+            (state.area.topRight.y - _imageRect.top) / _imageRect.height
+        ),
+        Point(
+            (state.area.bottomLeft.x - _imageRect.left) / _imageRect.width,
+            (state.area.bottomLeft.y - _imageRect.top) / _imageRect.height
+        ),
+        Point(
+            (state.area.bottomRight.x - _imageRect.left) / _imageRect.width,
+            (state.area.bottomRight.y - _imageRect.top) / _imageRect.height
+        )
       ];
 
-      scaledTopLeft = rotatedPoints[0];
-      scaledTopRight = rotatedPoints[1];
-      scaledBottomLeft = rotatedPoints[2];
-      scaledBottomRight = rotatedPoints[3];
-    } else {
-      // Portrait mode - direct scaling
+      debugPrint('''📊 Normalized points (0-1 range):
+        TL: ${normalizedPoints[0]}
+        TR: ${normalizedPoints[1]}
+        BL: ${normalizedPoints[2]}
+        BR: ${normalizedPoints[3]}
+    ''');
+
       scaledTopLeft = Point(
-          (state.area.topLeft.x - _imageRect.left) * scaleX,
-          (state.area.topLeft.y - _imageRect.top) * scaleY
+          imageDecoded.width * (1 - normalizedPoints[0].y),
+          imageDecoded.height * normalizedPoints[0].x
       );
       scaledTopRight = Point(
-          (state.area.topRight.x - _imageRect.left) * scaleX,
-          (state.area.topRight.y - _imageRect.top) * scaleY
+          imageDecoded.width * (1 - normalizedPoints[1].y),
+          imageDecoded.height * normalizedPoints[1].x
       );
       scaledBottomLeft = Point(
-          (state.area.bottomLeft.x - _imageRect.left) * scaleX,
-          (state.area.bottomLeft.y - _imageRect.top) * scaleY
+          imageDecoded.width * (1 - normalizedPoints[2].y),
+          imageDecoded.height * normalizedPoints[2].x
       );
       scaledBottomRight = Point(
-          (state.area.bottomRight.x - _imageRect.left) * scaleX,
-          (state.area.bottomRight.y - _imageRect.top) * scaleY
+          imageDecoded.width * (1 - normalizedPoints[3].y),
+          imageDecoded.height * normalizedPoints[3].x
+      );
+    } else {
+      // Portrait mode - direct scaling with offset adjustment
+      debugPrint('📐 Portrait transformation');
+
+      // Normalize points to account for image rect position
+      final normalizedPoints = [
+        Point(
+            (state.area.topLeft.x - _imageRect.left) / _imageRect.width,
+            (state.area.topLeft.y - _imageRect.top) / _imageRect.height
+        ),
+        Point(
+            (state.area.topRight.x - _imageRect.left) / _imageRect.width,
+            (state.area.topRight.y - _imageRect.top) / _imageRect.height
+        ),
+        Point(
+            (state.area.bottomLeft.x - _imageRect.left) / _imageRect.width,
+            (state.area.bottomLeft.y - _imageRect.top) / _imageRect.height
+        ),
+        Point(
+            (state.area.bottomRight.x - _imageRect.left) / _imageRect.width,
+            (state.area.bottomRight.y - _imageRect.top) / _imageRect.height
+        )
+      ];
+
+      // Scale normalized points to image dimensions
+      scaledTopLeft = Point(
+          normalizedPoints[0].x * imageDecoded.width,
+          normalizedPoints[0].y * imageDecoded.height
+      );
+      scaledTopRight = Point(
+          normalizedPoints[1].x * imageDecoded.width,
+          normalizedPoints[1].y * imageDecoded.height
+      );
+      scaledBottomLeft = Point(
+          normalizedPoints[2].x * imageDecoded.width,
+          normalizedPoints[2].y * imageDecoded.height
+      );
+      scaledBottomRight = Point(
+          normalizedPoints[3].x * imageDecoded.width,
+          normalizedPoints[3].y * imageDecoded.height
       );
     }
 
