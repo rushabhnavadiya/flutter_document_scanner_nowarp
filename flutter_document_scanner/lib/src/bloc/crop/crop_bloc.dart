@@ -192,7 +192,7 @@ class CropBloc extends Bloc<CropEvent, CropState> {
     final scalingFactorY = imageDecoded.height / newScreenSize.height;
     final scalingFactorX = imageDecoded.width / newScreenSize.width;
     // Adjust coordinates for landscape orientation
-    Area area;
+    Area? area;
     if (isLandscape) {
       area = Area(
         topRight: Point(
@@ -213,7 +213,7 @@ class CropBloc extends Bloc<CropEvent, CropState> {
         ),
       );
     } else {
-      final area = Area(
+      area = Area(
         topRight: Point(
           state.area.topRight.x * scalingFactorX,
           state.area.topRight.y * scalingFactorY,
