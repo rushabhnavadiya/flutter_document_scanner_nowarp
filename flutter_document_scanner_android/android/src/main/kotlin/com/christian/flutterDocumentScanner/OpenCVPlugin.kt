@@ -15,7 +15,7 @@ class OpenCVPlugin {
         ) {
             try {
                 // val src = Imgcodecs.imdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_UNCHANGED)
-                val src = Imgcodecs.mdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_COLOR)
+                val src = Imgcodecs.imdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_COLOR)
 
                 val documentContour = findBiggestContour(src, minContourArea)
 
@@ -176,7 +176,7 @@ class OpenCVPlugin {
         ) {
             try {
                 // val src = Imgcodecs.imdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_UNCHANGED)
-                val src = Imgcodecs.mdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_COLOR)
+                val src = Imgcodecs.imdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_COLOR)
                 val documentContour = MatOfPoint(
                     Point("${points[0]["x"]}".toDouble(), "${points[0]["y"]}".toDouble()),
                     Point("${points[1]["x"]}".toDouble(), "${points[1]["y"]}".toDouble()),
@@ -233,7 +233,7 @@ class OpenCVPlugin {
                     else -> FilterType.Natural
                 }
                 // val src = Imgcodecs.imdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_UNCHANGED)
-                val src = Imgcodecs.mdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_COLOR)
+                val src = Imgcodecs.imdecode(MatOfByte(*byteData), Imgcodecs.IMREAD_COLOR)
 
                 var dstEnd = Mat()
 
